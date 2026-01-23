@@ -156,31 +156,30 @@ export class GlitchTipClient {
 
     // GlitchTip doesn't have a global events endpoint
     // We need to get events through issues
-    // First get all issues, then get events for each and filter by tags
+    // Use /issues/{id}/events/latest/ to get full event data with tags
     const issues = await this.getIssues();
     const matchingEvents: GlitchTipEvent[] = [];
 
     // Limit to recent issues to avoid too many API calls
-    const recentIssues = issues.slice(0, 20);
+    const recentIssues = issues.slice(0, 50);
 
     for (const issue of recentIssues) {
       try {
-        const events = await this.makeRequest<GlitchTipEvent[]>(`/issues/${issue.id}/events/`);
+        // Use latest endpoint to get full event with tags
+        const event = await this.makeRequest<GlitchTipEvent>(`/issues/${issue.id}/events/latest/`);
 
         if (Object.keys(tagFilters).length > 0) {
-          // Filter events by tags
-          for (const event of events) {
-            const tags = event.tags || [];
-            const matches = Object.entries(tagFilters).every(([key, value]) => {
-              const tag = tags.find(t => t.key === key);
-              return tag && tag.value === value;
-            });
-            if (matches) {
-              matchingEvents.push(event);
-            }
+          // Filter event by tags
+          const tags = event.tags || [];
+          const matches = Object.entries(tagFilters).every(([key, value]) => {
+            const tag = tags.find(t => t.key === key);
+            return tag && tag.value === value;
+          });
+          if (matches) {
+            matchingEvents.push(event);
           }
         } else {
-          matchingEvents.push(...events);
+          matchingEvents.push(event);
         }
 
         // Limit total events returned
