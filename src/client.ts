@@ -86,53 +86,14 @@ export class GlitchTipClient {
       throw new GlitchTipValidationError('Organization is required in config.');
     }
 
-    // Parse tag filters from query (e.g., "walletAddress:0x123")
-    let tagFilters: Record<string, string> = {};
-    let apiQuery = query || '';
-
-    if (query) {
-      // Extract tag:value patterns
-      const tagPattern = /(\w+):([^\s]+)/g;
-      let match;
-      const nonTagParts: string[] = [];
-      let lastIndex = 0;
-
-      while ((match = tagPattern.exec(query)) !== null) {
-        const [fullMatch, key, value] = match;
-        // Check if it's a GlitchTip native query (is:resolved, etc.)
-        if (key === 'is') {
-          nonTagParts.push(fullMatch);
-        } else {
-          // It's a tag filter
-          tagFilters[key] = value;
-        }
-        lastIndex = match.index + fullMatch.length;
-      }
-
-      // Keep only native GlitchTip queries for API
-      apiQuery = nonTagParts.join(' ').trim();
-    }
-
+    // GlitchTip API supports tag filtering in query parameter (e.g., "walletAddress:0x123")
+    // Pass the query directly to the API for server-side filtering
     let endpoint = `/organizations/${this.config.organization}/issues/`;
-    if (apiQuery) {
-      endpoint += `?query=${encodeURIComponent(apiQuery)}`;
+    if (query) {
+      endpoint += `?query=${encodeURIComponent(query)}`;
     }
 
-    const issues = await this.makeRequest<GlitchTipIssue[]>(endpoint);
-
-    // Filter by tags on client side if tag filters specified
-    if (Object.keys(tagFilters).length > 0) {
-      return issues.filter(issue => {
-        // Check if issue has matching tags
-        const tags = issue.tags || [];
-        return Object.entries(tagFilters).every(([key, value]) => {
-          const tag = tags.find(t => t.key === key);
-          return tag && tag.value === value;
-        });
-      });
-    }
-
-    return issues;
+    return this.makeRequest<GlitchTipIssue[]>(endpoint);
   }
 
   async getEvents(query?: string): Promise<GlitchTipEvent[]> {
@@ -140,59 +101,25 @@ export class GlitchTipClient {
       throw new GlitchTipValidationError('Organization is required in config.');
     }
 
-    // Parse tag filters from query
-    let tagFilters: Record<string, string> = {};
-
-    if (query) {
-      const tagPattern = /(\w+):([^\s]+)/g;
-      let match;
-      while ((match = tagPattern.exec(query)) !== null) {
-        const [, key, value] = match;
-        if (key !== 'is') {
-          tagFilters[key] = value;
-        }
-      }
-    }
-
     // GlitchTip doesn't have a global events endpoint
-    // We need to get events through issues
-    // Use /issues/{id}/events/latest/ to get full event data with tags
-    const issues = await this.getIssues();
-    const matchingEvents: GlitchTipEvent[] = [];
+    // Get issues filtered by query (server-side), then fetch their latest events
+    const issues = await this.getIssues(query);
+    const events: GlitchTipEvent[] = [];
 
-    // Limit to recent issues to avoid too many API calls
-    const recentIssues = issues.slice(0, 50);
+    // Limit to first 10 issues
+    const limitedIssues = issues.slice(0, 10);
 
-    for (const issue of recentIssues) {
+    for (const issue of limitedIssues) {
       try {
-        // Use latest endpoint to get full event with tags
         const event = await this.makeRequest<GlitchTipEvent>(`/issues/${issue.id}/events/latest/`);
-
-        if (Object.keys(tagFilters).length > 0) {
-          // Filter event by tags
-          const tags = event.tags || [];
-          const matches = Object.entries(tagFilters).every(([key, value]) => {
-            const tag = tags.find(t => t.key === key);
-            return tag && tag.value === value;
-          });
-          if (matches) {
-            matchingEvents.push(event);
-          }
-        } else {
-          matchingEvents.push(event);
-        }
-
-        // Limit total events returned
-        if (matchingEvents.length >= 10) {
-          break;
-        }
+        events.push(event);
       } catch (error) {
         // Skip issues that fail to fetch events
         continue;
       }
     }
 
-    return matchingEvents;
+    return events;
   }
 
   async getIssueEvents(issueId: string, latest: boolean = false): Promise<GlitchTipEvent | GlitchTipEvent[]> {
