@@ -80,11 +80,12 @@ server.resource(
 
 server.tool(
   "glitchtip_issues",
-  "Get all issues from GlitchTip",
+  "Get issues from GlitchTip with optional filtering",
   {
-    status: z.enum(['resolved', 'unresolved', 'all']).optional().describe("Filter issues by status: 'resolved', 'unresolved', or 'all' (default: 'unresolved')")
+    status: z.enum(['resolved', 'unresolved', 'all']).optional().describe("Filter issues by status: 'resolved', 'unresolved', or 'all' (default: 'unresolved')"),
+    query: z.string().optional().describe("Additional search query, e.g. 'walletAddress:0x123...' or 'browser:Chrome'")
   },
-  async ({ status = 'unresolved' }) => {
+  async ({ status = 'unresolved', query }) => {
     const client = getGlitchTipClient();
     if (!client) {
       return {
@@ -95,8 +96,12 @@ server.tool(
       };
     }
     try {
-      const query = status === 'all' ? undefined : `is:${status}`;
-      const issues = await client.getIssues(query);
+      // Build query string
+      let q = status === 'all' ? '' : `is:${status}`;
+      if (query) {
+        q = q ? `${q} ${query}` : query;
+      }
+      const issues = await client.getIssues(q || undefined);
       return {
         content: [{
           type: "text",
