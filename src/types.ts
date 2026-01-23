@@ -34,6 +34,10 @@ export interface GlitchTipIssue {
   title: string;
   metadata: Record<string, unknown>;
   culprit: string;
+  tags?: Array<{
+    key: string;
+    value: string;
+  }>;
 }
 
 export interface GlitchTipEvent {

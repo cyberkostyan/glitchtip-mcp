@@ -86,12 +86,90 @@ export class GlitchTipClient {
       throw new GlitchTipValidationError('Organization is required in config.');
     }
 
-    let endpoint = `/organizations/${this.config.organization}/issues/`;
+    // Parse tag filters from query (e.g., "walletAddress:0x123")
+    let tagFilters: Record<string, string> = {};
+    let apiQuery = query || '';
+
     if (query) {
-      endpoint += `?query=${encodeURIComponent(query)}`;
+      // Extract tag:value patterns
+      const tagPattern = /(\w+):([^\s]+)/g;
+      let match;
+      const nonTagParts: string[] = [];
+      let lastIndex = 0;
+
+      while ((match = tagPattern.exec(query)) !== null) {
+        const [fullMatch, key, value] = match;
+        // Check if it's a GlitchTip native query (is:resolved, etc.)
+        if (key === 'is') {
+          nonTagParts.push(fullMatch);
+        } else {
+          // It's a tag filter
+          tagFilters[key] = value;
+        }
+        lastIndex = match.index + fullMatch.length;
+      }
+
+      // Keep only native GlitchTip queries for API
+      apiQuery = nonTagParts.join(' ').trim();
     }
 
-    return this.makeRequest<GlitchTipIssue[]>(endpoint);
+    let endpoint = `/organizations/${this.config.organization}/issues/`;
+    if (apiQuery) {
+      endpoint += `?query=${encodeURIComponent(apiQuery)}`;
+    }
+
+    const issues = await this.makeRequest<GlitchTipIssue[]>(endpoint);
+
+    // Filter by tags on client side if tag filters specified
+    if (Object.keys(tagFilters).length > 0) {
+      return issues.filter(issue => {
+        // Check if issue has matching tags
+        const tags = issue.tags || [];
+        return Object.entries(tagFilters).every(([key, value]) => {
+          const tag = tags.find(t => t.key === key);
+          return tag && tag.value === value;
+        });
+      });
+    }
+
+    return issues;
+  }
+
+  async getEvents(query?: string): Promise<GlitchTipEvent[]> {
+    if (!this.config.organization) {
+      throw new GlitchTipValidationError('Organization is required in config.');
+    }
+
+    // Parse tag filters from query
+    let tagFilters: Record<string, string> = {};
+
+    if (query) {
+      const tagPattern = /(\w+):([^\s]+)/g;
+      let match;
+      while ((match = tagPattern.exec(query)) !== null) {
+        const [, key, value] = match;
+        if (key !== 'is') {
+          tagFilters[key] = value;
+        }
+      }
+    }
+
+    // Get events from all projects
+    const endpoint = `/organizations/${this.config.organization}/events/`;
+    const events = await this.makeRequest<GlitchTipEvent[]>(endpoint);
+
+    // Filter by tags on client side
+    if (Object.keys(tagFilters).length > 0) {
+      return events.filter(event => {
+        const tags = event.tags || [];
+        return Object.entries(tagFilters).every(([key, value]) => {
+          const tag = tags.find(t => t.key === key);
+          return tag && tag.value === value;
+        });
+      });
+    }
+
+    return events;
   }
 
   async getIssueEvents(issueId: string, latest: boolean = false): Promise<GlitchTipEvent | GlitchTipEvent[]> {

@@ -80,10 +80,10 @@ server.resource(
 
 server.tool(
   "glitchtip_issues",
-  "Get issues from GlitchTip with optional filtering",
+  "Get issues (grouped errors) from GlitchTip with optional tag filtering. Use glitchtip_events for individual error occurrences.",
   {
     status: z.enum(['resolved', 'unresolved', 'all']).optional().describe("Filter issues by status: 'resolved', 'unresolved', or 'all' (default: 'unresolved')"),
-    query: z.string().optional().describe("Additional search query, e.g. 'walletAddress:0x123...' or 'browser:Chrome'")
+    query: z.string().optional().describe("Search with tag filters, e.g. 'walletAddress:0x123...' to find issues for a specific wallet. Returns only issues that have matching tags.")
   },
   async ({ status = 'unresolved', query }) => {
     const client = getGlitchTipClient();
@@ -102,6 +102,16 @@ server.tool(
         q = q ? `${q} ${query}` : query;
       }
       const issues = await client.getIssues(q || undefined);
+      if (issues.length === 0) {
+        return {
+          content: [{
+            type: "text",
+            text: query
+              ? `No issues found matching query: ${query}`
+              : `No ${status} issues found`
+          }]
+        };
+      }
       return {
         content: [{
           type: "text",
@@ -113,6 +123,51 @@ server.tool(
         content: [{
           type: "text",
           text: error instanceof Error ? error.message : 'Error fetching issues'
+        }]
+      };
+    }
+  }
+);
+
+server.tool(
+  "glitchtip_events",
+  "Search events (all error occurrences) with optional tag filtering",
+  {
+    query: z.string().optional().describe("Search query with tag filters, e.g. 'walletAddress:0x123...' to find events for a specific wallet")
+  },
+  async ({ query }) => {
+    const client = getGlitchTipClient();
+    if (!client) {
+      return {
+        content: [{
+          type: "text",
+          text: getValidationError()
+        }]
+      };
+    }
+    try {
+      const events = await client.getEvents(query);
+      if (events.length === 0) {
+        return {
+          content: [{
+            type: "text",
+            text: query
+              ? `No events found matching query: ${query}`
+              : 'No events found'
+          }]
+        };
+      }
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify(events, null, 2)
+        }]
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: "text",
+          text: error instanceof Error ? error.message : 'Error fetching events'
         }]
       };
     }
