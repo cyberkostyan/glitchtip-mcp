@@ -112,10 +112,15 @@ server.tool(
           }]
         };
       }
+      // Add URL to each issue
+      const issuesWithUrl = issues.map(issue => ({
+        ...issue,
+        url: client.getIssueUrl(issue.id)
+      }));
       return {
         content: [{
           type: "text",
-          text: JSON.stringify(issues, null, 2)
+          text: JSON.stringify(issuesWithUrl, null, 2)
         }]
       };
     } catch (error) {
@@ -167,7 +172,8 @@ server.tool(
         dateCreated: e.dateCreated,
         culprit: e.culprit,
         tags: e.tags,
-        metadata: e.metadata
+        metadata: e.metadata,
+        url: client.getIssueUrl(e.groupID)
       }));
       return {
         content: [{

@@ -129,4 +129,10 @@ export class GlitchTipClient {
 
     return this.makeRequest<GlitchTipEvent | GlitchTipEvent[]>(endpoint);
   }
+
+  getIssueUrl(issueId: string): string {
+    // Convert API URL to UI URL: https://glitch.swapio.dev/api/0 -> https://glitch.swapio.dev/swap-io/issues/613
+    const baseUrl = this.config.baseUrl.replace(/\/api\/0$/, '');
+    return `${baseUrl}/${this.config.organization}/issues/${issueId}`;
+  }
 }
