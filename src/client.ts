@@ -154,22 +154,46 @@ export class GlitchTipClient {
       }
     }
 
-    // Get events from all projects
-    const endpoint = `/organizations/${this.config.organization}/events/`;
-    const events = await this.makeRequest<GlitchTipEvent[]>(endpoint);
+    // GlitchTip doesn't have a global events endpoint
+    // We need to get events through issues
+    // First get all issues, then get events for each and filter by tags
+    const issues = await this.getIssues();
+    const matchingEvents: GlitchTipEvent[] = [];
 
-    // Filter by tags on client side
-    if (Object.keys(tagFilters).length > 0) {
-      return events.filter(event => {
-        const tags = event.tags || [];
-        return Object.entries(tagFilters).every(([key, value]) => {
-          const tag = tags.find(t => t.key === key);
-          return tag && tag.value === value;
-        });
-      });
+    // Limit to recent issues to avoid too many API calls
+    const recentIssues = issues.slice(0, 20);
+
+    for (const issue of recentIssues) {
+      try {
+        const events = await this.makeRequest<GlitchTipEvent[]>(`/issues/${issue.id}/events/`);
+
+        if (Object.keys(tagFilters).length > 0) {
+          // Filter events by tags
+          for (const event of events) {
+            const tags = event.tags || [];
+            const matches = Object.entries(tagFilters).every(([key, value]) => {
+              const tag = tags.find(t => t.key === key);
+              return tag && tag.value === value;
+            });
+            if (matches) {
+              matchingEvents.push(event);
+            }
+          }
+        } else {
+          matchingEvents.push(...events);
+        }
+
+        // Limit total events returned
+        if (matchingEvents.length >= 10) {
+          break;
+        }
+      } catch (error) {
+        // Skip issues that fail to fetch events
+        continue;
+      }
     }
 
-    return events;
+    return matchingEvents;
   }
 
   async getIssueEvents(issueId: string, latest: boolean = false): Promise<GlitchTipEvent | GlitchTipEvent[]> {
