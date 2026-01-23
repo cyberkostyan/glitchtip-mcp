@@ -131,7 +131,7 @@ server.tool(
 
 server.tool(
   "glitchtip_events",
-  "Search events (all error occurrences) with optional tag filtering",
+  "Search events (all error occurrences) with optional tag filtering. Returns summary info - use glitchtip_latest_event for full details.",
   {
     query: z.string().optional().describe("Search query with tag filters, e.g. 'walletAddress:0x123...' to find events for a specific wallet")
   },
@@ -157,10 +157,22 @@ server.tool(
           }]
         };
       }
+      // Return summary without large entries/breadcrumbs to keep response small
+      const summary = events.map(e => ({
+        eventID: e.eventID,
+        groupID: e.groupID,
+        title: e.title,
+        message: e.message,
+        type: e.type,
+        dateCreated: e.dateCreated,
+        culprit: e.culprit,
+        tags: e.tags,
+        metadata: e.metadata
+      }));
       return {
         content: [{
           type: "text",
-          text: JSON.stringify(events, null, 2)
+          text: JSON.stringify(summary, null, 2)
         }]
       };
     } catch (error) {
