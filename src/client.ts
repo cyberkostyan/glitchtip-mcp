@@ -96,7 +96,7 @@ export class GlitchTipClient {
     return this.makeRequest<GlitchTipIssue[]>(endpoint);
   }
 
-  async getEvents(query?: string): Promise<GlitchTipEvent[]> {
+  async getEvents(query?: string): Promise<(GlitchTipEvent & { level: string })[]> {
     if (!this.config.organization) {
       throw new GlitchTipValidationError('Organization is required in config.');
     }
@@ -104,7 +104,7 @@ export class GlitchTipClient {
     // GlitchTip doesn't have a global events endpoint
     // Get issues filtered by query (server-side), then fetch their latest events
     const issues = await this.getIssues(query);
-    const events: GlitchTipEvent[] = [];
+    const events: (GlitchTipEvent & { level: string })[] = [];
 
     // Limit to first 10 issues
     const limitedIssues = issues.slice(0, 10);
@@ -112,7 +112,8 @@ export class GlitchTipClient {
     for (const issue of limitedIssues) {
       try {
         const event = await this.makeRequest<GlitchTipEvent>(`/issues/${issue.id}/events/latest/`);
-        events.push(event);
+        // Add level from issue to event
+        events.push({ ...event, level: issue.level });
       } catch (error) {
         // Skip issues that fail to fetch events
         continue;

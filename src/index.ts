@@ -168,6 +168,7 @@ server.tool(
         groupID: e.groupID,
         title: e.title,
         message: e.message,
+        level: e.level,  // "error" or "info"
         type: e.type,
         dateCreated: e.dateCreated,
         culprit: e.culprit,
