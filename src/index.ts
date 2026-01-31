@@ -80,13 +80,14 @@ server.resource(
 
 server.tool(
   "glitchtip_issues",
-  "Get issues (grouped errors) from GlitchTip with optional project and tag filtering. Use glitchtip_events for individual error occurrences.",
+  "Get issues (grouped errors) from GlitchTip with optional project, environment, and tag filtering. Use glitchtip_events for individual error occurrences.",
   {
     project: z.string().optional().describe("Filter issues by project slug (e.g. 'parlay-api', 'frontend'). Use this to show only errors from a specific project."),
+    environment: z.string().optional().describe("Filter issues by environment (e.g. 'production', 'staging', 'development', 'local')."),
     status: z.enum(['resolved', 'unresolved', 'all']).optional().describe("Filter issues by status: 'resolved', 'unresolved', or 'all' (default: 'unresolved')"),
     query: z.string().optional().describe("Search with tag filters, e.g. 'walletAddress:0x123...' to find issues for a specific wallet. Returns only issues that have matching tags.")
   },
-  async ({ project, status = 'unresolved', query }) => {
+  async ({ project, environment, status = 'unresolved', query }) => {
     const client = getGlitchTipClient();
     if (!client) {
       return {
@@ -97,13 +98,13 @@ server.tool(
       };
     }
     try {
-      // Build query string (status filter only, project is passed separately)
+      // Build query string (status filter only, project and environment are passed separately)
       let q = status === 'all' ? '' : `is:${status}`;
       if (query) {
         q = q ? `${q} ${query}` : query;
       }
-      // Pass project slug separately - client will resolve it to project ID
-      const issues = await client.getIssues(q || undefined, project);
+      // Pass project slug and environment separately - client will resolve project to ID
+      const issues = await client.getIssues(q || undefined, project, environment);
       if (issues.length === 0) {
         return {
           content: [{
@@ -138,12 +139,13 @@ server.tool(
 
 server.tool(
   "glitchtip_events",
-  "Search events (all error occurrences) with optional project and tag filtering. Returns summary info - use glitchtip_latest_event for full details.",
+  "Search events (all error occurrences) with optional project, environment, and tag filtering. Returns summary info - use glitchtip_latest_event for full details.",
   {
     project: z.string().optional().describe("Filter events by project slug (e.g. 'parlay-api', 'frontend'). Use this to show only errors from a specific project."),
+    environment: z.string().optional().describe("Filter events by environment (e.g. 'production', 'staging', 'development', 'local')."),
     query: z.string().optional().describe("Search query with tag filters, e.g. 'walletAddress:0x123...' to find events for a specific wallet")
   },
-  async ({ project, query }) => {
+  async ({ project, environment, query }) => {
     const client = getGlitchTipClient();
     if (!client) {
       return {
@@ -154,8 +156,8 @@ server.tool(
       };
     }
     try {
-      // Pass project slug separately - client will resolve it to project ID
-      const events = await client.getEvents(query || undefined, project);
+      // Pass project slug and environment separately - client will resolve project to ID
+      const events = await client.getEvents(query || undefined, project, environment);
       if (events.length === 0) {
         return {
           content: [{
