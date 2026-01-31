@@ -8,8 +8,16 @@ import {
   GlitchTipConnectionError
 } from './types.js';
 
+interface GlitchTipProject {
+  id: string;
+  slug: string;
+  name: string;
+  platform: string;
+}
+
 export class GlitchTipClient {
   private config: GlitchTipConfig;
+  private projectCache: Map<string, string> = new Map(); // slug -> id
 
   constructor(config: GlitchTipConfig) {
     this.config = config;
@@ -26,6 +34,9 @@ export class GlitchTipClient {
     if (!this.config.organization) {
       throw new GlitchTipValidationError('Organization is required');
     }
+
+    // GlitchTip API uses lowercase organization slugs
+    this.config.organization = this.config.organization.toLowerCase();
 
     if (!this.config.baseUrl.endsWith('/api/0')) {
       this.config.baseUrl = this.config.baseUrl.endsWith('/')
@@ -81,29 +92,65 @@ export class GlitchTipClient {
     }
   }
 
-  async getIssues(query?: string): Promise<GlitchTipIssue[]> {
+  async getProjects(): Promise<GlitchTipProject[]> {
+    return this.makeRequest<GlitchTipProject[]>(
+      `/organizations/${this.config.organization}/projects/`
+    );
+  }
+
+  async getProjectId(slug: string): Promise<string | null> {
+    // Check cache first
+    if (this.projectCache.has(slug)) {
+      return this.projectCache.get(slug)!;
+    }
+
+    // Fetch projects and populate cache
+    const projects = await this.getProjects();
+    for (const project of projects) {
+      this.projectCache.set(project.slug, project.id);
+    }
+
+    return this.projectCache.get(slug) || null;
+  }
+
+  async getIssues(query?: string, projectSlug?: string): Promise<GlitchTipIssue[]> {
     if (!this.config.organization) {
       throw new GlitchTipValidationError('Organization is required in config.');
     }
 
-    // GlitchTip API supports tag filtering in query parameter (e.g., "walletAddress:0x123")
-    // Pass the query directly to the API for server-side filtering
-    let endpoint = `/organizations/${this.config.organization}/issues/`;
+    // Build endpoint with query params
+    const params = new URLSearchParams();
+
+    // GlitchTip API uses project ID as query parameter, not in the query string
+    if (projectSlug) {
+      const projectId = await this.getProjectId(projectSlug);
+      if (projectId) {
+        params.set('project', projectId);
+      }
+    }
+
+    // Add search query if provided
     if (query) {
-      endpoint += `?query=${encodeURIComponent(query)}`;
+      params.set('query', query);
+    }
+
+    let endpoint = `/organizations/${this.config.organization}/issues/`;
+    const queryString = params.toString();
+    if (queryString) {
+      endpoint += `?${queryString}`;
     }
 
     return this.makeRequest<GlitchTipIssue[]>(endpoint);
   }
 
-  async getEvents(query?: string): Promise<(GlitchTipEvent & { level: string })[]> {
+  async getEvents(query?: string, projectSlug?: string): Promise<(GlitchTipEvent & { level: string })[]> {
     if (!this.config.organization) {
       throw new GlitchTipValidationError('Organization is required in config.');
     }
 
     // GlitchTip doesn't have a global events endpoint
     // Get issues filtered by query (server-side), then fetch their latest events
-    const issues = await this.getIssues(query);
+    const issues = await this.getIssues(query, projectSlug);
     const events: (GlitchTipEvent & { level: string })[] = [];
 
     // Limit to first 10 issues

@@ -97,15 +97,13 @@ server.tool(
       };
     }
     try {
-      // Build query string
+      // Build query string (status filter only, project is passed separately)
       let q = status === 'all' ? '' : `is:${status}`;
-      if (project) {
-        q = q ? `${q} project:${project}` : `project:${project}`;
-      }
       if (query) {
         q = q ? `${q} ${query}` : query;
       }
-      const issues = await client.getIssues(q || undefined);
+      // Pass project slug separately - client will resolve it to project ID
+      const issues = await client.getIssues(q || undefined, project);
       if (issues.length === 0) {
         return {
           content: [{
@@ -156,12 +154,8 @@ server.tool(
       };
     }
     try {
-      // Build query with project filter
-      let q = project ? `project:${project}` : '';
-      if (query) {
-        q = q ? `${q} ${query}` : query;
-      }
-      const events = await client.getEvents(q || undefined);
+      // Pass project slug separately - client will resolve it to project ID
+      const events = await client.getEvents(query || undefined, project);
       if (events.length === 0) {
         return {
           content: [{
