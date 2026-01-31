@@ -80,12 +80,13 @@ server.resource(
 
 server.tool(
   "glitchtip_issues",
-  "Get issues (grouped errors) from GlitchTip with optional tag filtering. Use glitchtip_events for individual error occurrences.",
+  "Get issues (grouped errors) from GlitchTip with optional project and tag filtering. Use glitchtip_events for individual error occurrences.",
   {
+    project: z.string().optional().describe("Filter issues by project slug (e.g. 'parlay-api', 'frontend'). Use this to show only errors from a specific project."),
     status: z.enum(['resolved', 'unresolved', 'all']).optional().describe("Filter issues by status: 'resolved', 'unresolved', or 'all' (default: 'unresolved')"),
     query: z.string().optional().describe("Search with tag filters, e.g. 'walletAddress:0x123...' to find issues for a specific wallet. Returns only issues that have matching tags.")
   },
-  async ({ status = 'unresolved', query }) => {
+  async ({ project, status = 'unresolved', query }) => {
     const client = getGlitchTipClient();
     if (!client) {
       return {
@@ -98,6 +99,9 @@ server.tool(
     try {
       // Build query string
       let q = status === 'all' ? '' : `is:${status}`;
+      if (project) {
+        q = q ? `${q} project:${project}` : `project:${project}`;
+      }
       if (query) {
         q = q ? `${q} ${query}` : query;
       }
@@ -136,11 +140,12 @@ server.tool(
 
 server.tool(
   "glitchtip_events",
-  "Search events (all error occurrences) with optional tag filtering. Returns summary info - use glitchtip_latest_event for full details.",
+  "Search events (all error occurrences) with optional project and tag filtering. Returns summary info - use glitchtip_latest_event for full details.",
   {
+    project: z.string().optional().describe("Filter events by project slug (e.g. 'parlay-api', 'frontend'). Use this to show only errors from a specific project."),
     query: z.string().optional().describe("Search query with tag filters, e.g. 'walletAddress:0x123...' to find events for a specific wallet")
   },
-  async ({ query }) => {
+  async ({ project, query }) => {
     const client = getGlitchTipClient();
     if (!client) {
       return {
@@ -151,7 +156,12 @@ server.tool(
       };
     }
     try {
-      const events = await client.getEvents(query);
+      // Build query with project filter
+      let q = project ? `project:${project}` : '';
+      if (query) {
+        q = q ? `${q} ${query}` : query;
+      }
+      const events = await client.getEvents(q || undefined);
       if (events.length === 0) {
         return {
           content: [{
