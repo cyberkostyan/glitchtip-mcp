@@ -87,6 +87,48 @@ echo ".env" >> .gitignore
 </details>
 
 <details>
+<summary><b>Install in OpenClaw</b></summary>
+
+### Prerequisites
+
+1. [OpenClaw](https://openclaw.ai) installed
+2. GlitchTip API token or session ID
+3. Your GlitchTip organization slug
+
+### Configuration
+
+1. Open your OpenClaw configuration file (`openclaw.json`)
+
+2. Add the following to the `mcpServers` section:
+
+```json
+{
+  "mcpServers": {
+    "glitchtip": {
+      "command": "npx",
+      "args": ["-y", "glitchtip-mcp"],
+      "env": {
+        "GLITCHTIP_TOKEN": "your-api-token",
+        "GLITCHTIP_ORGANIZATION": "your-org-slug",
+        "GLITCHTIP_BASE_URL": "https://app.glitchtip.com"
+      }
+    }
+  }
+}
+```
+
+3. Replace the environment variables with your actual values
+4. Save the file and restart OpenClaw
+
+### Verify Installation
+
+1. Restart OpenClaw
+2. Check that the glitchtip MCP server is listed in available tools
+3. Test with: "Show me GlitchTip errors"
+
+</details>
+
+<details>
 <summary><b>Install in Claude Desktop</b></summary>
 
 ### Prerequisites
