@@ -1,6 +1,6 @@
 {
   "name": "glitchtip-mcp",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "MCP server for GlitchTip error monitoring integration",
   "type": "module",
   "bin": {
