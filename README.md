@@ -336,19 +336,35 @@ echo ".env" >> .gitignore
 
 ### `glitchtip_issues`
 
-Fetches issues from GlitchTip.
+Get issues (grouped errors) from GlitchTip with optional filtering.
 
 **Parameters**:
+- `project` (optional): Filter by project slug (e.g. `'parlay-api'`, `'frontend'`)
+- `environment` (optional): Filter by environment (e.g. `'production'`, `'staging'`, `'development'`)
 - `status` (optional): `'resolved'`, `'unresolved'`, or `'all'` (default: `'unresolved'`)
+- `query` (optional): Search with tag filters (e.g. `'walletAddress:0x123...'`)
 
 **Examples**:
 - "Show me all GlitchTip errors"
-- "Get resolved issues"
-- "Show all issues including resolved"
+- "Get resolved issues from the frontend project"
+- "Show production errors"
+
+### `glitchtip_events`
+
+Search events (individual error occurrences) with optional filtering. Returns summary info — use `glitchtip_latest_event` for full details.
+
+**Parameters**:
+- `project` (optional): Filter by project slug (e.g. `'parlay-api'`, `'frontend'`)
+- `environment` (optional): Filter by environment (e.g. `'production'`, `'staging'`, `'development'`)
+- `query` (optional): Search with tag filters (e.g. `'walletAddress:0x123...'`)
+
+**Examples**:
+- "Show me recent events from production"
+- "Find events for wallet 0x123..."
 
 ### `glitchtip_latest_event`
 
-Gets the latest event for a specific issue with full context.
+Gets the latest event for a specific issue with full context including stack trace, breadcrumbs, and tags.
 
 **Parameters**:
 - `issueId`: The issue ID
